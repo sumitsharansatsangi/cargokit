@@ -1,5 +1,7 @@
 import java.nio.file.Paths
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.process.ExecOperations
+import javax.inject.Inject
 
 CargoKitPlugin.file = buildscript.sourceFile
 
@@ -39,6 +41,10 @@ abstract class CargoKitBuildTask extends DefaultTask {
     @Input
     List<String> targetPlatforms
 
+    // Inject ExecOperations — the Gradle 8.8+ compatible replacement for project.exec
+    @Inject
+    abstract ExecOperations getExecOperations()
+
     @TaskAction
     def build() {
         if (project.cargokit.manifestDir == null) {
@@ -57,12 +63,14 @@ abstract class CargoKitBuildTask extends DefaultTask {
         def rootProjectDir = project.rootProject.projectDir
 
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
-            project.exec {
+            // Use injected ExecOperations instead of project.exec
+            execOperations.exec {
                 commandLine 'chmod', '+x', path
             }
         }
 
-        project.exec {
+        // Use injected ExecOperations instead of project.exec
+        execOperations.exec {
             executable path
             args "build-gradle"
             environment "CARGOKIT_ROOT_PROJECT_DIR", rootProjectDir
@@ -89,7 +97,7 @@ class CargoKitPlugin implements Plugin<Project> {
         _findFlutterPlugin(rootProject.childProjects)
     }
 
-   private Plugin _findFlutterPlugin(Map projects) {
+    private Plugin _findFlutterPlugin(Map projects) {
         for (project in projects) {
             for (plugin in project.value.getPlugins()) {
                 if (plugin.class.name == "com.flutter.gradle.FlutterPlugin") {
