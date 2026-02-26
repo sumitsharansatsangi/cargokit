@@ -100,7 +100,12 @@ class CargoKitPlugin implements Plugin<Project> {
     private Plugin _findFlutterPlugin(Map projects) {
         for (project in projects) {
             for (plugin in project.value.getPlugins()) {
-                if (plugin.class.name == "com.flutter.gradle.FlutterPlugin") {
+                // Compatibility: Flutter >=3.32.0-0.0.pre
+                // In Flutter 3.32.0-0.0.pre, the Flutter Gradle plugin was refactored from Groovy to Kotlin.
+                // (See: https://github.com/flutter/flutter/tree/3.32.0-0.0.pre/packages/flutter_tools/gradle/src/main)
+                // FlutterPlugin >> com.flutter.gradle.FlutterPlugin
+                // plugin.getTargetPlatforms >> com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms
+                if (plugin.class.name == "com.flutter.gradle.FlutterPlugin" || plugin.class.name == "FlutterPlugin") {
                     return plugin;
                 }
             }
@@ -137,8 +142,13 @@ class CargoKitPlugin implements Plugin<Project> {
             def jniLibs = project.android.sourceSets.maybeCreate(buildType).jniLibs;
             jniLibs.srcDir(new File(cargoOutputDir))
 
-            def platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()
-
+            def platforms
+            try {
+                // Compatibility: Flutter >=3.32.0-0.0.pre
+                platforms = com.flutter.gradle.FlutterPluginUtils.getTargetPlatforms(project).collect()
+            } catch (Exception e) {
+                platforms = plugin.getTargetPlatforms().collect()
+            }
             // Same thing addFlutterDependencies does in flutter.gradle
             if (buildType == "debug") {
                 platforms.add("android-x86")
