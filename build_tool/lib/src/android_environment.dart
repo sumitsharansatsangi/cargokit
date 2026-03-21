@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -6,6 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as path;
 import 'package:version/version.dart';
 
+import 'exceptions.dart';
 import 'target.dart';
 import 'util.dart';
 
@@ -16,6 +18,7 @@ class AndroidEnvironment {
     required this.minSdkVersion,
     required this.targetTempDir,
     required this.target,
+    this.hostAbi,
   });
 
   static void clangLinkerWrapper(List<String> args) {
@@ -51,6 +54,9 @@ class AndroidEnvironment {
   /// Target being built.
   final Target target;
 
+  /// Test override for the host ABI used to resolve the NDK prebuilt toolchain.
+  final Abi? hostAbi;
+
   bool ndkIsInstalled() {
     final ndkPath = path.join(sdkPath, 'ndk', ndkVersion);
     final ndkPackageXml = File(path.join(ndkPath, 'package.xml'));
@@ -79,11 +85,8 @@ class AndroidEnvironment {
   }
 
   Future<Map<String, String>> buildEnvironment() async {
-    final hostArch = Platform.isMacOS
-        ? "darwin-x86_64"
-        : (Platform.isLinux ? "linux-x86_64" : "windows-x86_64");
-
     final ndkPath = path.join(sdkPath, 'ndk', ndkVersion);
+    final hostArch = _hostToolchainSubdir(ndkPath);
     final toolchainPath = path.join(
       ndkPath,
       'toolchains',
@@ -132,7 +135,7 @@ class AndroidEnvironment {
         Platform.isWindows ? 'run_build_tool.cmd' : 'run_build_tool.sh';
 
     final packagePath = (await Isolate.resolvePackageUri(
-            Uri.parse('package:build_tool/buildtool.dart')))!
+            Uri.parse('package:build_tool/build_tool.dart')))!
         .toFilePath();
     final selfPath = path.canonicalize(path.join(
       packagePath,
@@ -161,6 +164,38 @@ class AndroidEnvironment {
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,
       'CARGOKIT_TOOL_TEMP_DIR': toolTempDir,
     };
+  }
+
+  String _hostToolchainSubdir(String ndkPath) {
+    final prebuiltRoot = path.join(
+      ndkPath,
+      'toolchains',
+      'llvm',
+      'prebuilt',
+    );
+    final resolvedHostAbi = hostAbi ?? Abi.current();
+
+    final candidates = switch (resolvedHostAbi) {
+      Abi.macosArm64 => ['darwin-arm64', 'darwin-x86_64'],
+      Abi.macosX64 => ['darwin-x86_64', 'darwin-arm64'],
+      Abi.linuxX64 => ['linux-x86_64'],
+      Abi.windowsX64 => ['windows-x86_64'],
+      _ => throw UnsupportedPlatformException(
+          'Android NDK builds are not supported from host ABI $resolvedHostAbi.',
+        ),
+    };
+
+    for (final candidate in candidates) {
+      final candidatePath = path.join(prebuiltRoot, candidate);
+      if (Directory(candidatePath).existsSync()) {
+        return candidate;
+      }
+    }
+
+    throw ArtifactException(
+      'Unable to locate an Android NDK LLVM prebuilt toolchain for host ABI '
+      '$resolvedHostAbi under "$prebuiltRoot". Checked: ${candidates.join(', ')}.',
+    );
   }
 
   // Workaround for libgcc missing in NDK23, inspired by cargo-ndk
