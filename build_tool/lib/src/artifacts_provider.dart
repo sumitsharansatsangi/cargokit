@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 
 import 'builder.dart';
 import 'crate_hash.dart';
+import 'exceptions.dart';
 import 'options.dart';
 import 'precompile_binaries.dart';
 import 'rustup.dart';
@@ -29,7 +30,9 @@ class Artifact {
     } else if (finalFileName.endsWith('.lib') || finalFileName.endsWith('.a')) {
       return ArtifactType.staticlib;
     } else {
-      throw Exception('Unknown artifact type for $finalFileName');
+      throw ArtifactException(
+        'Unknown artifact type for "$finalFileName".',
+      );
     }
   }
 
@@ -295,6 +298,8 @@ List<String> getArtifactNames({
       return ['lib$libraryName.so'];
     }
   } else {
-    throw Exception("Unsupported target: ${target.rust}");
+    throw UnsupportedPlatformException(
+      'Artifact naming is not implemented for Rust target "${target.rust}".',
+    );
   }
 }

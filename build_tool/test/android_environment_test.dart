@@ -19,7 +19,8 @@ void main() {
 
   test('prefers darwin arm64 NDK toolchain on Apple Silicon', () async {
     final env = _createEnvironment(
-      ndkRoot: _createPrebuilt(tempDir.path, 'darwin-arm64'),
+      tempRoot: tempDir.path,
+      hostDir: 'darwin-arm64',
       hostAbi: Abi.macosArm64,
     );
 
@@ -37,7 +38,8 @@ void main() {
 
   test('falls back to darwin x64 NDK toolchain when needed', () async {
     final env = _createEnvironment(
-      ndkRoot: _createPrebuilt(tempDir.path, 'darwin-x86_64'),
+      tempRoot: tempDir.path,
+      hostDir: 'darwin-x86_64',
       hostAbi: Abi.macosArm64,
     );
 
@@ -51,16 +53,19 @@ void main() {
 }
 
 AndroidEnvironment _createEnvironment({
-  required String ndkRoot,
+  required String tempRoot,
+  required String hostDir,
   required Abi hostAbi,
 }) {
+  _createPrebuilt(tempRoot, hostDir);
   return AndroidEnvironment(
-    sdkPath: path.dirname(path.dirname(path.dirname(path.dirname(ndkRoot)))),
-    ndkVersion: path.basename(path.dirname(path.dirname(path.dirname(ndkRoot)))),
+    sdkPath: path.join(tempRoot, 'sdk'),
+    ndkVersion: '26.1.10909125',
     minSdkVersion: 21,
-    targetTempDir: path.join(path.dirname(ndkRoot), 'build-temp'),
+    targetTempDir: path.join(tempRoot, 'build-temp'),
     target: Target.forRustTriple('aarch64-linux-android')!,
     hostAbi: hostAbi,
+    buildToolRunnerPath: path.join(tempRoot, 'run_build_tool.sh'),
   );
 }
 

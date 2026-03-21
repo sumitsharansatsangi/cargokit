@@ -32,5 +32,5 @@ jobs:
         run: dart analyze
         working-directory: build_tool
       - name: Test
-        run: dart test
+        run: flutter test
         working-directory: build_tool

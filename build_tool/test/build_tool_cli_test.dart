@@ -8,7 +8,7 @@ void main() {
     test('gen-key prints a private and public key', () async {
       final result = await _runCli(['run', 'bin/build_tool.dart', 'gen-key']);
 
-      expect(result.exitCode, 0);
+      expect(result.exitCode, 0, reason: _describeResult(result));
       expect(result.stdout, contains('Private Key: '));
       expect(result.stdout, contains('Public Key: '));
     });
@@ -32,7 +32,7 @@ edition = "2021"
         '--manifest-dir=${tempDir.path}',
       ]);
 
-      expect(result.exitCode, 0);
+      expect(result.exitCode, 0, reason: _describeResult(result));
       expect(result.stdout, contains('Crate does not support precompiled binaries.'));
     });
 
@@ -41,7 +41,7 @@ edition = "2021"
         ['run', 'bin/build_tool.dart', 'build-cmake'],
       );
 
-      expect(result.exitCode, 1);
+      expect(result.exitCode, 1, reason: _describeResult(result));
       expect(
         result.stderr,
         contains('Missing required environment variable "CARGOKIT_ROOT_PROJECT_DIR"'),
@@ -51,9 +51,48 @@ edition = "2021"
 }
 
 Future<ProcessResult> _runCli(List<String> args) {
+  final dartExecutable = _dartExecutable();
   return Process.run(
-    Platform.resolvedExecutable,
-    args,
+    '/bin/zsh',
+    [
+      '-lc',
+      [
+        _shellQuote(dartExecutable),
+        ...args.map(_shellQuote),
+      ].join(' '),
+    ],
     workingDirectory: Directory.current.path,
   );
+}
+
+String _shellQuote(String value) {
+  return "'${value.replaceAll("'", "'\"'\"'")}'";
+}
+
+String _describeResult(ProcessResult result) {
+  return 'stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}';
+}
+
+String _dartExecutable() {
+  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
+  if (flutterRoot != null) {
+    return path.join(flutterRoot, 'bin', 'dart');
+  }
+
+  if (path.basename(Platform.resolvedExecutable) == 'flutter_tester') {
+    final flutterRootFromTester = path.dirname(
+      path.dirname(
+        path.dirname(
+          path.dirname(
+            path.dirname(
+              path.dirname(Platform.resolvedExecutable),
+            ),
+          ),
+        ),
+      ),
+    );
+    return path.join(flutterRootFromTester, 'bin', 'dart');
+  }
+
+  return Platform.resolvedExecutable;
 }

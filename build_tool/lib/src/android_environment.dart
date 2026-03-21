@@ -19,18 +19,23 @@ class AndroidEnvironment {
     required this.targetTempDir,
     required this.target,
     this.hostAbi,
+    this.buildToolRunnerPath,
   });
 
   static void clangLinkerWrapper(List<String> args) {
     final clang = Platform.environment['_CARGOKIT_NDK_LINK_CLANG'];
     if (clang == null) {
-      throw Exception(
-          "cargo-ndk rustc linker: didn't find _CARGOKIT_NDK_LINK_CLANG env var");
+      throw EnvironmentVariableException(
+        name: '_CARGOKIT_NDK_LINK_CLANG',
+        context: 'the Android NDK linker wrapper',
+      );
     }
     final target = Platform.environment['_CARGOKIT_NDK_LINK_TARGET'];
     if (target == null) {
-      throw Exception(
-          "cargo-ndk rustc linker: didn't find _CARGOKIT_NDK_LINK_TARGET env var");
+      throw EnvironmentVariableException(
+        name: '_CARGOKIT_NDK_LINK_TARGET',
+        context: 'the Android NDK linker wrapper',
+      );
     }
 
     runCommand(clang, [
@@ -56,6 +61,9 @@ class AndroidEnvironment {
 
   /// Test override for the host ABI used to resolve the NDK prebuilt toolchain.
   final Abi? hostAbi;
+
+  /// Test override for the runner script used as the Android linker wrapper.
+  final String? buildToolRunnerPath;
 
   bool ndkIsInstalled() {
     final ndkPath = path.join(sdkPath, 'ndk', ndkVersion);
@@ -106,7 +114,9 @@ class AndroidEnvironment {
         .map((e) => path.join(toolchainPath, e))
         .firstWhereOrNull((element) => File(element).existsSync());
     if (arValue == null) {
-      throw Exception('Failed to find ar for $target in $toolchainPath');
+      throw ArtifactException(
+        'Failed to find an archiver for target "$target" in "$toolchainPath".',
+      );
     }
 
     final targetArg = '--target=${target.rust}$minSdkVersion';
@@ -131,19 +141,7 @@ class AndroidEnvironment {
     final rustFlagsKey = 'CARGO_ENCODED_RUSTFLAGS';
     final rustFlagsValue = _libGccWorkaround(targetTempDir, ndkVersionParsed);
 
-    final runRustTool =
-        Platform.isWindows ? 'run_build_tool.cmd' : 'run_build_tool.sh';
-
-    final packagePath = (await Isolate.resolvePackageUri(
-            Uri.parse('package:build_tool/build_tool.dart')))!
-        .toFilePath();
-    final selfPath = path.canonicalize(path.join(
-      packagePath,
-      '..',
-      '..',
-      '..',
-      runRustTool,
-    ));
+    final selfPath = buildToolRunnerPath ?? await _resolveBuildToolRunnerPath();
 
     // Make sure that run_build_tool is working properly even initially launched directly
     // through dart run.
@@ -196,6 +194,22 @@ class AndroidEnvironment {
       'Unable to locate an Android NDK LLVM prebuilt toolchain for host ABI '
       '$resolvedHostAbi under "$prebuiltRoot". Checked: ${candidates.join(', ')}.',
     );
+  }
+
+  Future<String> _resolveBuildToolRunnerPath() async {
+    final runRustTool =
+        Platform.isWindows ? 'run_build_tool.cmd' : 'run_build_tool.sh';
+
+    final packagePath = (await Isolate.resolvePackageUri(
+            Uri.parse('package:build_tool/build_tool.dart')))!
+        .toFilePath();
+    return path.canonicalize(path.join(
+      packagePath,
+      '..',
+      '..',
+      '..',
+      runRustTool,
+    ));
   }
 
   // Workaround for libgcc missing in NDK23, inspired by cargo-ndk
