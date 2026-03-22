@@ -22,6 +22,7 @@ void main() {
       tempRoot: tempDir.path,
       hostDir: 'darwin-arm64',
       hostAbi: Abi.macosArm64,
+      toolLayout: _ToolLayout.legacy,
     );
 
     final buildEnvironment = await env.buildEnvironment();
@@ -41,6 +42,7 @@ void main() {
       tempRoot: tempDir.path,
       hostDir: 'darwin-x86_64',
       hostAbi: Abi.macosArm64,
+      toolLayout: _ToolLayout.legacy,
     );
 
     final buildEnvironment = await env.buildEnvironment();
@@ -50,14 +52,36 @@ void main() {
       contains('darwin-x86_64'),
     );
   });
+
+  test('uses llvm binutils from newer NDKs when prefixed tools are absent',
+      () async {
+    final env = _createEnvironment(
+      tempRoot: tempDir.path,
+      hostDir: 'darwin-arm64',
+      hostAbi: Abi.macosArm64,
+      toolLayout: _ToolLayout.llvmOnly,
+    );
+
+    final buildEnvironment = await env.buildEnvironment();
+
+    expect(
+      path.basename(buildEnvironment['AR_aarch64-linux-android']!),
+      'llvm-ar',
+    );
+    expect(
+      path.basename(buildEnvironment['RANLIB_aarch64-linux-android']!),
+      'llvm-ranlib',
+    );
+  });
 }
 
 AndroidEnvironment _createEnvironment({
   required String tempRoot,
   required String hostDir,
   required Abi hostAbi,
+  required _ToolLayout toolLayout,
 }) {
-  _createPrebuilt(tempRoot, hostDir);
+  _createPrebuilt(tempRoot, hostDir, toolLayout);
   return AndroidEnvironment(
     sdkPath: path.join(tempRoot, 'sdk'),
     ndkVersion: '26.1.10909125',
@@ -69,7 +93,11 @@ AndroidEnvironment _createEnvironment({
   );
 }
 
-String _createPrebuilt(String tempRoot, String hostDir) {
+String _createPrebuilt(
+  String tempRoot,
+  String hostDir,
+  _ToolLayout toolLayout,
+) {
   final ndkRoot = path.join(
     tempRoot,
     'sdk',
@@ -82,9 +110,23 @@ String _createPrebuilt(String tempRoot, String hostDir) {
     'bin',
   );
   Directory(ndkRoot).createSync(recursive: true);
-  File(path.join(ndkRoot, 'aarch64-linux-android-ar')).writeAsStringSync('');
-  File(path.join(ndkRoot, 'llvm-ranlib')).writeAsStringSync('');
+  switch (toolLayout) {
+    case _ToolLayout.legacy:
+      File(path.join(ndkRoot, 'aarch64-linux-android-ar')).writeAsStringSync(
+        '',
+      );
+      File(path.join(ndkRoot, 'aarch64-linux-android-ranlib'))
+          .writeAsStringSync('');
+    case _ToolLayout.llvmOnly:
+      File(path.join(ndkRoot, 'llvm-ar')).writeAsStringSync('');
+      File(path.join(ndkRoot, 'llvm-ranlib')).writeAsStringSync('');
+  }
   File(path.join(ndkRoot, 'clang')).writeAsStringSync('');
   File(path.join(ndkRoot, 'clang++')).writeAsStringSync('');
   return ndkRoot;
+}
+
+enum _ToolLayout {
+  legacy,
+  llvmOnly,
 }

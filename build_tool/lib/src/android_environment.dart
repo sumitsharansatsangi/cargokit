@@ -110,9 +110,11 @@ class AndroidEnvironment {
     final exe = Platform.isWindows ? '.exe' : '';
 
     final arKey = 'AR_${target.rust}';
-    final arValue = ['${target.rust}-ar', 'llvm-ar', 'llvm-ar.exe']
-        .map((e) => path.join(toolchainPath, e))
-        .firstWhereOrNull((element) => File(element).existsSync());
+    final arValue = _resolveTool(toolchainPath, [
+      '${target.rust}-ar$exe',
+      'llvm-ar$exe',
+      if (exe.isEmpty) 'llvm-ar.exe',
+    ]);
     if (arValue == null) {
       throw ArtifactException(
         'Failed to find an archiver for target "$target" in "$toolchainPath".',
@@ -135,7 +137,16 @@ class AndroidEnvironment {
         'cargo_target_${target.rust.replaceAll('-', '_')}_linker'.toUpperCase();
 
     final ranlibKey = 'RANLIB_${target.rust}';
-    final ranlibValue = path.join(toolchainPath, 'llvm-ranlib$exe');
+    final ranlibValue = _resolveTool(toolchainPath, [
+      '${target.rust}-ranlib$exe',
+      'llvm-ranlib$exe',
+      if (exe.isEmpty) 'llvm-ranlib.exe',
+    ]);
+    if (ranlibValue == null) {
+      throw ArtifactException(
+        'Failed to find ranlib for target "$target" in "$toolchainPath".',
+      );
+    }
 
     final ndkVersionParsed = Version.parse(ndkVersion);
     final rustFlagsKey = 'CARGO_ENCODED_RUSTFLAGS';
@@ -162,6 +173,12 @@ class AndroidEnvironment {
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,
       'CARGOKIT_TOOL_TEMP_DIR': toolTempDir,
     };
+  }
+
+  String? _resolveTool(String toolchainPath, List<String> candidates) {
+    return candidates
+        .map((candidate) => path.join(toolchainPath, candidate))
+        .firstWhereOrNull((toolPath) => File(toolPath).existsSync());
   }
 
   String _hostToolchainSubdir(String ndkPath) {
