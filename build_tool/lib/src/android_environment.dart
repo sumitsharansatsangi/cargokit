@@ -38,10 +38,7 @@ class AndroidEnvironment {
       );
     }
 
-    runCommand(clang, [
-      target,
-      ...args,
-    ]);
+    runCommand(clang, [target, ...args]);
   }
 
   /// Full path to Android SDK.
@@ -71,9 +68,7 @@ class AndroidEnvironment {
     return ndkPackageXml.existsSync();
   }
 
-  void installNdk({
-    required String javaHome,
-  }) {
+  void installNdk({required String javaHome}) {
     final sdkManagerExtension = Platform.isWindows ? '.bat' : '';
     final sdkManager = path.join(
       sdkPath,
@@ -84,12 +79,11 @@ class AndroidEnvironment {
     );
 
     log.info('Installing NDK $ndkVersion');
-    runCommand(sdkManager, [
-      '--install',
-      'ndk;$ndkVersion',
-    ], environment: {
-      'JAVA_HOME': javaHome,
-    });
+    runCommand(
+      sdkManager,
+      ['--install', 'ndk;$ndkVersion'],
+      environment: {'JAVA_HOME': javaHome},
+    );
   }
 
   Future<Map<String, String>> buildEnvironment() async {
@@ -104,8 +98,10 @@ class AndroidEnvironment {
       'bin',
     );
 
-    final minSdkVersion =
-        math.max(target.androidMinSdkVersion!, this.minSdkVersion);
+    final minSdkVersion = math.max(
+      target.androidMinSdkVersion!,
+      this.minSdkVersion,
+    );
 
     final exe = Platform.isWindows ? '.exe' : '';
 
@@ -133,8 +129,8 @@ class AndroidEnvironment {
     final cxxFlagsKey = 'CXXFLAGS_${target.rust}';
     final cxxFlagsValue = targetArg;
 
-    final linkerKey =
-        'cargo_target_${target.rust.replaceAll('-', '_')}_linker'.toUpperCase();
+    final linkerKey = 'cargo_target_${target.rust.replaceAll('-', '_')}_linker'
+        .toUpperCase();
 
     final ranlibKey = 'RANLIB_${target.rust}';
     final ranlibValue = _resolveTool(toolchainPath, [
@@ -182,12 +178,7 @@ class AndroidEnvironment {
   }
 
   String _hostToolchainSubdir(String ndkPath) {
-    final prebuiltRoot = path.join(
-      ndkPath,
-      'toolchains',
-      'llvm',
-      'prebuilt',
-    );
+    final prebuiltRoot = path.join(ndkPath, 'toolchains', 'llvm', 'prebuilt');
     final resolvedHostAbi = hostAbi ?? Abi.current();
 
     final candidates = switch (resolvedHostAbi) {
@@ -196,8 +187,8 @@ class AndroidEnvironment {
       Abi.linuxX64 => ['linux-x86_64'],
       Abi.windowsX64 => ['windows-x86_64'],
       _ => throw UnsupportedPlatformException(
-          'Android NDK builds are not supported from host ABI $resolvedHostAbi.',
-        ),
+        'Android NDK builds are not supported from host ABI $resolvedHostAbi.',
+      ),
     };
 
     for (final candidate in candidates) {
@@ -214,19 +205,16 @@ class AndroidEnvironment {
   }
 
   Future<String> _resolveBuildToolRunnerPath() async {
-    final runRustTool =
-        Platform.isWindows ? 'run_build_tool.cmd' : 'run_build_tool.sh';
+    final runRustTool = Platform.isWindows
+        ? 'run_build_tool.cmd'
+        : 'run_build_tool.sh';
 
     final packagePath = (await Isolate.resolvePackageUri(
-            Uri.parse('package:build_tool/build_tool.dart')))!
-        .toFilePath();
-    return path.canonicalize(path.join(
-      packagePath,
-      '..',
-      '..',
-      '..',
-      runRustTool,
-    ));
+      Uri.parse('package:build_tool/build_tool.dart'),
+    ))!.toFilePath();
+    return path.canonicalize(
+      path.join(packagePath, '..', '..', '..', runRustTool),
+    );
   }
 
   // Workaround for libgcc missing in NDK23, inspired by cargo-ndk
@@ -239,13 +227,15 @@ class AndroidEnvironment {
     );
     Directory(workaroundDir).createSync(recursive: true);
     if (ndkVersion.major >= 23) {
-      File(path.join(workaroundDir, 'libgcc.a'))
-          .writeAsStringSync('INPUT(-lunwind)');
+      File(
+        path.join(workaroundDir, 'libgcc.a'),
+      ).writeAsStringSync('INPUT(-lunwind)');
     } else {
       // Other way around, untested, forward libgcc.a from libunwind once Rust
       // gets updated for NDK23+.
-      File(path.join(workaroundDir, 'libunwind.a'))
-          .writeAsStringSync('INPUT(-lgcc)');
+      File(
+        path.join(workaroundDir, 'libunwind.a'),
+      ).writeAsStringSync('INPUT(-lgcc)');
     }
 
     var rustFlags = Platform.environment['CARGO_ENCODED_RUSTFLAGS'] ?? '';
@@ -253,6 +243,15 @@ class AndroidEnvironment {
       rustFlags = '$rustFlags\x1f';
     }
     rustFlags = '$rustFlags-L\x1f$workaroundDir';
+    if (target.android == 'arm64-v8a' || target.android == 'x86_64') {
+      const pageSizeArgs = [
+        '-C',
+        'link-arg=-Wl,--hash-style=both',
+        '-C',
+        'link-arg=-Wl,-z,max-page-size=16384',
+      ];
+      rustFlags = '$rustFlags\x1f${pageSizeArgs.join("\x1f")}';
+    }
     return rustFlags;
   }
 }

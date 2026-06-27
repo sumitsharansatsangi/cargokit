@@ -24,7 +24,7 @@ inputs through `CARGOKIT_*` environment variables.
 
 Builds the Rust library for Android.
 
-This command is normally launched by `gradle/plugin.gradle`. It resolves the
+This command is normally launched by `gradle/plugin.gradle.kts`. It resolves the
 requested Android ABIs, configures the Android NDK toolchain, and places the
 produced `.so` files into Gradle's `jniLibs` output structure.
 

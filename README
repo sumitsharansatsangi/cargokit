@@ -16,7 +16,7 @@ toolchain setup, target selection, artifact building, and artifact placement.
 
 - `build_tool/`: Dart CLI that performs target resolution, toolchain setup,
   local builds, precompiled binary download, and verification.
-- `gradle/plugin.gradle`: Android integration used by Flutter plugins.
+- `gradle/plugin.gradle.kts`: Android integration used by Flutter plugins.
 - `cmake/cargokit.cmake`: Linux and Windows integration for CMake-based builds.
 - `build_pod.sh`: CocoaPods integration for iOS and macOS builds.
 - `docs/architecture.md`: High-level explanation of how the pieces fit

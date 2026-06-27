@@ -16,20 +16,25 @@ class BuildGradle {
   final CargokitUserOptions userOptions;
 
   Future<void> build() async {
-    final targets = Environment.targetPlatforms.map((arch) {
-      final target = Target.forFlutterName(arch);
-      if (target == null) {
-        throw UnsupportedPlatformException(
-          'Android build received unsupported Flutter target "$arch". '
-          'Expected one of the known Android target platform names.',
-        );
-      }
-      return target;
-    }).toList();
+    final targets = Environment.targetPlatforms
+        .map((arch) {
+          final target = Target.forFlutterName(arch);
+          if (target == null) {
+            throw UnsupportedPlatformException(
+              'Android build received unsupported Flutter target "$arch". '
+              'Expected one of the known Android target platform names.',
+            );
+          }
+          return target;
+        })
+        .toSet()
+        .toList();
 
     final environment = BuildEnvironment.fromEnvironment(isAndroid: true);
-    final provider =
-        ArtifactProvider(environment: environment, userOptions: userOptions);
+    final provider = ArtifactProvider(
+      environment: environment,
+      userOptions: userOptions,
+    );
     final artifacts = await provider.getArtifacts(targets);
 
     for (final target in targets) {

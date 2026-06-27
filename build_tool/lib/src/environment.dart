@@ -46,6 +46,7 @@ class Environment {
   static String get javaHome => _getEnvPath("CARGOKIT_JAVA_HOME");
   static List<String> get targetPlatforms =>
       _getEnv("CARGOKIT_TARGET_PLATFORMS").split(',');
+  static String? get ohosSdkHome => _getEnvOptional("CARGOKIT_OHOS_SDK_HOME");
 
   // CMAKE
   static String get targetPlatform => _getEnv("CARGOKIT_TARGET_PLATFORM");
@@ -68,5 +69,9 @@ class Environment {
     } else {
       return res;
     }
+  }
+
+  static String? _getEnvOptional(String key) {
+    return (testEnvironment ?? Platform.environment)[key];
   }
 }

@@ -12,6 +12,7 @@ class Target {
     this.androidMinSdkVersion,
     this.darwinPlatform,
     this.darwinArch,
+    this.ohos,
   });
 
   static final all = [
@@ -39,22 +40,10 @@ class Target {
       android: 'x86_64',
       androidMinSdkVersion: 21,
     ),
-    Target(
-      rust: 'x86_64-pc-windows-msvc',
-      flutter: 'windows-x64',
-    ),
-    Target(
-      rust: 'aarch64-pc-windows-msvc',
-      flutter: 'windows-arm64',
-    ),
-    Target(
-      rust: 'x86_64-unknown-linux-gnu',
-      flutter: 'linux-x64',
-    ),
-    Target(
-      rust: 'aarch64-unknown-linux-gnu',
-      flutter: 'linux-arm64',
-    ),
+    Target(rust: 'x86_64-pc-windows-msvc', flutter: 'windows-x64'),
+    Target(rust: 'aarch64-pc-windows-msvc', flutter: 'windows-arm64'),
+    Target(rust: 'x86_64-unknown-linux-gnu', flutter: 'linux-x64'),
+    Target(rust: 'aarch64-unknown-linux-gnu', flutter: 'linux-arm64'),
     Target(rust: 'riscv64gc-unknown-linux-gnu', flutter: 'linux-riscv64'),
     Target(
       rust: 'x86_64-apple-darwin',
@@ -81,6 +70,21 @@ class Target {
       darwinPlatform: 'iphonesimulator',
       darwinArch: 'x86_64',
     ),
+    Target(
+      rust: 'aarch64-unknown-linux-ohos',
+      flutter: 'ohos-arm64',
+      ohos: 'arm64-v8a',
+    ),
+    Target(
+      rust: 'armv7-unknown-linux-ohos',
+      flutter: 'ohos-arm',
+      ohos: 'armeabi-v7a',
+    ),
+    Target(
+      rust: 'x86_64-unknown-linux-ohos',
+      flutter: 'ohos-x64',
+      ohos: 'x86_64',
+    ),
   ];
 
   static Target? forFlutterName(String flutterName) {
@@ -91,9 +95,11 @@ class Target {
     required String platformName,
     required String darwinAarch,
   }) {
-    return all.firstWhereOrNull((element) => //
-        element.darwinPlatform == platformName &&
-        element.darwinArch == darwinAarch);
+    return all.firstWhereOrNull(
+      (element) => //
+          element.darwinPlatform == platformName &&
+          element.darwinArch == darwinAarch,
+    );
   }
 
   static Target? forRustTriple(String triple) {
@@ -106,8 +112,22 @@ class Target {
         .toList(growable: false);
   }
 
+  static List<Target> ohosTargets() {
+    return all.where((element) => element.ohos != null).toList(growable: false);
+  }
+
   /// Returns buildable targets on current host platform ignoring Android targets.
   static List<Target> buildableTargets() {
+    if (Platform.operatingSystem == 'ohos') {
+      final arch = (runCommand('arch', []).stdout as String).trim();
+      if (arch == 'aarch64') {
+        return [Target.forRustTriple('aarch64-unknown-linux-ohos')!];
+      } else if (arch == 'armv7') {
+        return [Target.forRustTriple('armv7-unknown-linux-ohos')!];
+      } else {
+        return [Target.forRustTriple('x86_64-unknown-linux-ohos')!];
+      }
+    }
     if (Platform.isLinux) {
       // Right now we don't support cross-compiling on Linux. So we just return
       // the host target.
@@ -120,14 +140,16 @@ class Target {
         return [Target.forRustTriple('x86_64-unknown-linux-gnu')!];
       }
     }
-    return all.where((target) {
-      if (Platform.isWindows) {
-        return target.rust.contains('-windows-');
-      } else if (Platform.isMacOS) {
-        return target.darwinPlatform != null;
-      }
-      return false;
-    }).toList(growable: false);
+    return all
+        .where((target) {
+          if (Platform.isWindows) {
+            return target.rust.contains('-windows-');
+          } else if (Platform.isMacOS) {
+            return target.darwinPlatform != null;
+          }
+          return false;
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -141,4 +163,5 @@ class Target {
   final int? androidMinSdkVersion;
   final String? darwinPlatform;
   final String? darwinArch;
+  final String? ohos;
 }

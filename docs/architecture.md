@@ -27,7 +27,7 @@ The command takes no additional arguments, everything is controlled during envir
 
 ### build-gradle
 
-This is invoked from `plugin.gradle` and it is used to build the Rust crate into a dynamic library on Android. The command takes no additional arguments, everything is controlled during environment variables set by `plugin.gradle`.
+This is invoked from `plugin.gradle.kts` and it is used to build the Rust crate into a dynamic library on Android. The command takes no additional arguments, everything is controlled during environment variables set by `plugin.gradle.kts`.
 
 The build_tool installs NDK if needed, configures the Rust environment for cross compilation and then invokes `cargo build` with appropriate arguments and environment variables.
 
